@@ -68,37 +68,63 @@ export async function kubectlScale(
         env: { ...process.env, KUBECONFIG: process.env.KUBECONFIG },
       });
 
+      const response = {
+        success: true,
+        message: `Scaled ${resourceType} ${input.name} to ${input.replicas} replicas`,
+        resourceType: resourceType,
+        name: input.name,
+        replicas: input.replicas,
+        namespace: namespace,
+        timestamp: new Date().toISOString(),
+        server: "mcp-server-kubernetes"
+      };
+
       return {
         content: [
           {
-            success: true,
-            message: `Scaled ${resourceType} ${input.name} to ${input.replicas} replicas`,
+            type: "text",
+            text: JSON.stringify(response, null, 2)
           },
         ],
       };
     } catch (error: any) {
-      throw new McpError(
-        ErrorCode.InternalError,
-        `Failed to scale ${resourceType}: ${error.message}`
-      );
-    }
-  } catch (error: any) {
-    if (error instanceof McpError) {
+      // 确保错误情况下也返回正确的格式
+      const errorResponse = {
+        success: false,
+        message: `Failed to scale ${resourceType}: ${error.message}`,
+        resourceType: resourceType,
+        name: input.name,
+        replicas: input.replicas,
+        namespace: namespace,
+        timestamp: new Date().toISOString(),
+        server: "mcp-server-kubernetes",
+        error: error.message
+      };
+
       return {
         content: [
           {
-            success: false,
-            message: error.message,
+            type: "text",
+            text: JSON.stringify(errorResponse, null, 2)
           },
         ],
       };
     }
+  } catch (error: any) {
+    // 最外层错误处理，确保总是返回正确的格式
+    const errorResponse = {
+      success: false,
+      message: error instanceof McpError ? error.message : `Failed to scale resource: ${error.message}`,
+      timestamp: new Date().toISOString(),
+      server: "mcp-server-kubernetes",
+      error: error.message || "Unknown error"
+    };
 
     return {
       content: [
         {
-          success: false,
-          message: `Failed to scale resource: ${error.message}`,
+          type: "text",
+          text: JSON.stringify(errorResponse, null, 2)
         },
       ],
     };
